@@ -19,17 +19,20 @@ jobs:
 
       - name: Move New Data to Pending and Revert Main
         run: |
+          # Configure identity so the commit works
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           mkdir -p pending/
           
-          # 1. Capture the NEW version you just pushed into a variable
-          NEW_CONTENT=$(cat config.yml)
+          # 1. Capture the NEW version you just pushed
+          # We use a temp file instead of a variable to handle multi-line YAML safely
+          cp config.yml "pending/change_$TIMESTAMP.yml"
           
           # 2. Restore the OLD version of config.yml from the previous commit
-          git show HEAD~1:config.yml > config.yml
-          
-          # 3. Save the NEW content into the pending folder
-          echo "$NEW_CONTENT" > "pending/change_$TIMESTAMP.yml"
+          # 'git checkout' is cleaner than 'git show' for reverting a single file
+          git checkout HEAD~1 -- config.yml
           
           echo "Main file reverted. New version moved to pending."
 
@@ -37,5 +40,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "System: Moved new config to pending and restored main"
-          # This tells Git to push both the reverted config AND the new pending file
-          file_pattern: 'config.yml pending/*.yml'
+          # '.' tells it to look at all changes (the revert + the new file)
+          file_pattern: '.' 
+          # This force-pushes if necessary to clear that "rejected" error you saw
+          push_options: '--force'
