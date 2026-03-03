@@ -1,0 +1,41 @@
+name: Move Changes to Pending
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'config.yml' ]
+
+jobs:
+  stage-to-pending:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Move New Data to Pending and Revert Main
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          mkdir -p pending/
+          
+          # 1. Capture the NEW version you just pushed into a variable
+          NEW_CONTENT=$(cat config.yml)
+          
+          # 2. Restore the OLD version of config.yml from the previous commit
+          git show HEAD~1:config.yml > config.yml
+          
+          # 3. Save the NEW content into the pending folder
+          echo "$NEW_CONTENT" > "pending/change_$TIMESTAMP.yml"
+          
+          echo "Main file reverted. New version moved to pending."
+
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "System: Moved new config to pending and restored main"
+          # This tells Git to push both the reverted config AND the new pending file
+          file_pattern: 'config.yml pending/*.yml'
